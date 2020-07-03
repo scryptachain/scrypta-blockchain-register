@@ -35,7 +35,7 @@
           <div class="container" id="create" style="margin-top:50px;">
             <div class="card">
               <div style="padding: 50px 20px;">
-                <img src="/scrypta_h.png" width="70%">
+                <img src="/scrypta_h.png" width="25%"><br><br>
                 <h1 class="title is-2">Blockchain Register Manager</h1>
                 <h2 class="subtitle">
                   <br />Enter with your Scrypta Identity.<br><br>
