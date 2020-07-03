@@ -82,8 +82,6 @@
         let identity = await app.scrypta.returnIdentity(app.address);
         app.wallet = identity;
         app.isLogging = false;
-        localStorage.setItem('SID','')
-        location.reload()
       } else {
         app.isLogging = false;
       }
