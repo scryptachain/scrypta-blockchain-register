@@ -77,57 +77,18 @@
       app.wallet = await app.scrypta.importBrowserSID();
       app.wallet = await app.scrypta.returnDefaultIdentity();
       if (app.wallet.length > 0) {
-        let SIDS = app.wallet.split(":");
+        let SIDS = app.wallet.split(":")
         app.address = SIDS[0];
-        if(app.address === process.env.VUE_APP_master_address){
-          let identity = await app.scrypta.returnIdentity(app.address);
-          app.wallet = identity;
-          app.isLogging = false;
-        } else {
-          app.$buefy.toast.open({
-            message: "Wrong master address!",
-            type: "is-danger"
-          });
-          localStorage.setItem('SID','')
-          location.reload()
-        }
+        let identity = await app.scrypta.returnIdentity(app.address);
+        app.wallet = identity;
+        app.isLogging = false;
+        localStorage.setItem('SID','')
+        location.reload()
       } else {
         app.isLogging = false;
       }
     },
     methods: {
-      loadWalletFromFile() {
-        const app = this;
-        const file = app.file;
-        const reader = new FileReader();
-        reader.onload = function() {
-          var dataKey = reader.result;
-
-          app.$buefy.dialog.prompt({
-            message: `Enter wallet password`,
-            inputAttrs: {
-              type: "password"
-            },
-            trapFocus: true,
-            onConfirm: async password => {
-              let key = await app.scrypta.readKey(password, dataKey);
-              if (key !== false) {
-                app.scrypta.importPrivateKey(key.prv, password);
-                localStorage.setItem("SID", dataKey)
-                let exp = dataKey.split(':')
-                localStorage.setItem("sid_backup", exp[0])
-                location.reload();
-              } else {
-                app.$buefy.toast.open({
-                  message: "Wrong password!",
-                  type: "is-danger"
-                });
-              }
-            }
-          });
-        };
-        reader.readAsText(file);
-      },
       logout() {
         localStorage.setItem("SID", "");
         location.reload();

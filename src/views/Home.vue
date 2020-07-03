@@ -208,7 +208,7 @@
                 const s3 = new aws.S3({
                   endpoint: spacesEndpoint
                 })
-                s3.getObject({Bucket: process.env.VUE_APP_do_space, Key: 'db'}, async function(err, data) {
+                s3.getObject({Bucket: process.env.VUE_APP_do_space, Key: app.address + '.db'}, async function(err, data) {
                   if(!err){
                     let db = new Buffer.from(data.Body).toString()
                     let decrypted = await app.scrypta.decryptData(db, key.prv)
@@ -227,7 +227,7 @@
                         Bucket: process.env.VUE_APP_do_space,
                         ACL: 'private',
                         Body: Buffer(crypted),
-                        Key: 'db'
+                        Key: app.address + '.db'
                     }, { Bucket: process.env.do_space }, function (err) {
                         app.isUploading = false
                         if(!err){
@@ -276,7 +276,7 @@
                     Bucket: process.env.VUE_APP_do_space,
                     ACL: 'private',
                     Body: Buffer(crypted),
-                    Key: 'db'
+                    Key: app.address + '.db'
                 }, { Bucket: process.env.do_space }, function (err) {
                     app.isUploading = false
                     response(true)

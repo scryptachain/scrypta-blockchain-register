@@ -49,9 +49,9 @@
         address: "",
         wallet: "",
         isLogging: true,
-        file: [],
         written: [],
         userwallet: {},
+        s3filekeys: {},
         scan: '',
         user: {
           name: '',
@@ -90,8 +90,9 @@
           data.data.message = JSON.parse(data.data.message)
           let signed = data.data
           let check = await app.scrypta.verifyMessage(signed.pubKey, signed.signature, JSON.stringify(signed.message))
-          if(check !== false && signed.address === process.env.VUE_APP_master_address){
+          if(check !== false && signed.address === app.address){
             try{
+              app.s3filekeys[data.uuid] = app.scan + '/' + signed.message.file
               data.link = 'https://' + process.env.VUE_APP_do_space + '.' + process.env.VUE_APP_do_endpoint + '/' + app.scan + '/' + signed.message.file
               let file = await axios.get(data.link, {responseType: 'arraybuffer'})
               data.filetype = await FileType.fromBuffer(file.data)
@@ -128,7 +129,7 @@
                 const s3 = new aws.S3({
                   endpoint: spacesEndpoint
                 })
-                s3.getObject({Bucket: process.env.VUE_APP_do_space, Key: 'db'}, async function(err, data) {
+                s3.getObject({Bucket: process.env.VUE_APP_do_space, Key: app.address + '.db'}, async function(err, data) {
                   if(!err){
                     let db = new Buffer.from(data.Body).toString()
                     let decrypted = await app.scrypta.decryptData(db, key.prv)
@@ -165,6 +166,10 @@
         let unlock = await app.loadDbfromSpace()
         if(unlock !== false){
           app.isInvalidating = true
+          app.$buefy.toast.open({
+            message: "Invalidating please wait..",
+            type: "is-info"
+          })
           let balance = await app.scrypta.get('/balance/' + app.wallet.address)
           if(balance.balance >= 0.002){
             let funded = false
@@ -183,12 +188,20 @@
                 written = await app.scrypta.invalidate(app.userwallet.sid, app.userwallet.pin, uuid)
                 if (written.txs.length >= 1 && written.txs[0] !== null) {
                   success = true
-                  app.$buefy.toast.open({
-                    message: "Data invalidated correctly, please wait at least 2 minutes!",
-                    type: "is-success"
+                  const spacesEndpoint = new aws.Endpoint(process.env.VUE_APP_do_endpoint);
+                  const s3 = new aws.S3({
+                    endpoint: spacesEndpoint
                   })
-                  app.isInvalidating = false
-                  app.userwallet = ''
+                  s3.deleteObject({Bucket: process.env.VUE_APP_do_space, Key: app.s3filekeys[uuid]}, async function(err) {
+                    if(!err){
+                      app.$buefy.toast.open({
+                        message: "Data invalidated and deleted from space correctly, please wait at least 2 minutes!",
+                        type: "is-success"
+                      })
+                      app.isInvalidating = false
+                      app.userwallet = ''
+                    }
+                  })
                 }
               }
             }else{
