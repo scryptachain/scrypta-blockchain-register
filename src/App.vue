@@ -9,7 +9,7 @@
         </template>
         
         <template slot="start">
-          <b-navbar-item href="/#/">Users</b-navbar-item>
+          <b-navbar-item href="/#/">Folders</b-navbar-item>
           <b-navbar-item href="/#/notarize">Notarize</b-navbar-item>
         </template>
 
@@ -35,10 +35,10 @@
           <div class="container" id="create" style="margin-top:50px;">
             <div class="card">
               <div style="padding: 50px 20px;">
-                <h1 class="title is-1">Scrypta Blockchain Register Manager</h1>
-                <br />
+                <img src="/scrypta_h.png" width="70%">
+                <h1 class="title is-2">Blockchain Register Manager</h1>
                 <h2 class="subtitle">
-                  <br />Enter with authorized Scrypta Identity.<br><br>
+                  <br />Enter with your Scrypta Identity.<br><br>
                   <div id="scrypta-login" dapp="Scrypta Register"></div>
                 </h2>
               </div>

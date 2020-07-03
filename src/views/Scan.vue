@@ -1,35 +1,44 @@
 <template>
   <div style="text-align:left; padding: 20px">
-    <h1>
-      Scan address
-    </h1><span style="font-size:14px; font-weight:normal; margin-top:-40px">{{ $route.params.address }}</span><br><br>
-    <div v-if="written.length > 0">
-      <div class="columns is-multiline is-mobile">
-        <div class="column is-one-quarter" v-for="file in written" v-bind:key="file.uuid">
-          <div class="card">
-            <div class="card-content">
-              <div class="media">
-                <div class="media-content">
-                  <p class="title is-4">{{ file.data.message.title }}</p>
-                  <p class="subtitle is-6">{{ file.uuid }}</p>
+    <div v-if="isUnlocked">
+      <h1>
+        Scan folder
+      </h1><span style="font-size:14px; font-weight:normal; margin-top:-40px">{{ $route.params.address }}</span><br><br>
+      <div v-if="written.length > 0">
+        <div class="columns is-multiline is-mobile">
+          <div class="column is-one-quarter" v-for="file in written" v-bind:key="file.uuid">
+            <div class="card">
+              <div class="card-content">
+                <div class="media">
+                  <div class="media-content">
+                    <p v-if="file.data.message.title" class="title is-4">{{ file.data.message.title }}</p>
+                    <p v-if="!file.data.message.title" class="title is-4">Untitled</p>
+                    <p class="subtitle is-6">{{ file.uuid }}</p>
+                    <p class="subtitle is-6">{{ file.data.message.hash }}</p>
+                  </div>
                 </div>
-              </div>
 
-              <div class="content">
-                <b>Notarize at block</b> {{ file.block }}<br>
-                <b>At</b> {{ file.date }}<br><br>
-                <a :href="file.link" target="_blank">
-                  <b-button style="width:100%" type="is-info">DOWNLOAD CERTIFICATE</b-button>
-                </a>
-                <b-button style="width:100%" v-if="!isInvalidating" v-on:click="invalidate(file.uuid)" type="is-danger">INVALIDATE CERTIFICATE</b-button>
+                <div class="content">
+                  <b>Notarize at block</b> {{ file.block }}<br>
+                  <b>At</b> {{ file.date }}<br><br>
+                  <a :href="file.link" v-if="!file.data.message.visibility || file.data.message.visibility === 'public'">
+                    <b-button style="width:100%" type="is-info">DOWNLOAD</b-button>
+                  </a>
+                  <b-button style="width:100%"  v-if="file.data.message.visibility && file.data.message.visibility === 'encrypted'" v-on:click="decrypt(file.uuid)" type="is-info">DECRYPT AND DOWNLOAD</b-button>
+                  <b-button style="width:100%" v-if="!isInvalidating" v-on:click="invalidate(file.uuid)" type="is-danger">INVALIDATE</b-button>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
+      <div v-if="written.length === 0">
+        Nessun file da mostrare...
+      </div>
     </div>
-    <div v-if="written.length === 0">
-      Nessun file da mostrare...
+    <div v-if="!isUnlocked" style="padding:20vh 0; text-align:center;">
+      Unlock your wallet first.<br><br>
+      <b-button v-on:click="loadDbfromSpace" type="is-primary">UNLOCK</b-button>
     </div>
   </div>  
 </template>
@@ -48,8 +57,10 @@
         scrypta: new ScryptaCore(true),
         address: "",
         wallet: "",
+        isUnlocked: false,
         isLogging: true,
         written: [],
+        files: [],
         userwallet: {},
         s3filekeys: {},
         scan: '',
@@ -76,7 +87,8 @@
         app.wallet = identity
         app.isLogging = false
         app.scan = app.$route.params.address
-        let written = await app.scrypta.post('/read', {address: app.scan, protocol: process.env.VUE_APP_do_space + '://'})
+        let written = await app.scrypta.post('/read', {address: app.scan, protocol: 'register://'})
+        await app.loadDbfromSpace()
         app.scanWritten(written)
       } else {
         app.isLogging = false
@@ -93,7 +105,7 @@
           if(check !== false && signed.address === app.address){
             try{
               app.s3filekeys[data.uuid] = app.scan + '/' + signed.message.file
-              data.link = 'https://' + process.env.VUE_APP_do_space + '.' + process.env.VUE_APP_do_endpoint + '/' + app.scan + '/' + signed.message.file
+              data.link = 'https://' + app.digitalocean.space + '.' + app.digitalocean.endpoint + '/scryptaregister/' + app.scan + '/' + signed.message.file
               let file = await axios.get(data.link, {responseType: 'arraybuffer'})
               data.filetype = await FileType.fromBuffer(file.data)
               if(data.data.message.title !== '' && data.data.message.title !== undefined){
@@ -101,6 +113,7 @@
               }
               data.date = timestampToDate(data.data.message.timestamp,'dd/MM/yyyy HH:mm:ss')
               app.written.push(data)
+              app.files[data.uuid] = data
             }catch(e){
               alert(e)
             }
@@ -119,17 +132,17 @@
             onConfirm: async password => {
               let key = await app.scrypta.readKey(password, app.wallet.wallet);
               if (key !== false) {
-                let do_key = await app.scrypta.decryptData(process.env.VUE_APP_do_key_id, key.prv)
-                let do_secret = await app.scrypta.decryptData(process.env.VUE_APP_do_secret_key, key.prv)
                 aws.config.update({
-                  accessKeyId: do_key,
-                  secretAccessKey: do_secret
+                  accessKeyId: key.do.key_id,
+                  secretAccessKey: key.do.key_secret
                 })
-                const spacesEndpoint = new aws.Endpoint(process.env.VUE_APP_do_endpoint);
+                app.isUnlocked = true
+                app.digitalocean = key.do
+                const spacesEndpoint = new aws.Endpoint(key.do.endpoint)
                 const s3 = new aws.S3({
                   endpoint: spacesEndpoint
                 })
-                s3.getObject({Bucket: process.env.VUE_APP_do_space, Key: app.address + '.db'}, async function(err, data) {
+                s3.getObject({Bucket: key.do.space, Key: 'scryptaregister/' + app.address + '.db'}, async function(err, data) {
                   if(!err){
                     let db = new Buffer.from(data.Body).toString()
                     let decrypted = await app.scrypta.decryptData(db, key.prv)
@@ -161,6 +174,33 @@
           });
         })
       },
+      async decrypt(uuid){
+        const app = this
+        let encrypted = await axios.get('https://'+app.digitalocean.space+'.'+app.digitalocean.endpoint+'/scryptaregister/' + app.scan + '/' + app.files[uuid].data.message.file)
+        let userwallet = await app.scrypta.readKey(app.userwallet.pin, app.userwallet.sid)
+        let decrypted = await app.scrypta.decryptFile(encrypted.data, userwallet.prv, true)
+        if(decrypted !== false){
+          let ft = await FileType.fromBuffer(decrypted)
+          let blob = new Blob([decrypted], { type: ft.mime })
+          var blobUrl = URL.createObjectURL(blob)
+          const app = this
+          var a = document.createElement("a");
+          document.body.appendChild(a);
+          a.style = "display: none";
+          a.href = blobUrl;
+          let title = app.files[uuid].data.message.title
+          if(title === ''){
+            title = 'Untitled.' + ft.ext
+          }
+          a.download = title;
+          a.click();
+        }else{
+          app.$buefy.toast.open({
+            message: "Something goes wrong with decryption.",
+            type: "is-error"
+          })
+        }
+      },
       async invalidate(uuid){
         const app = this
         let unlock = await app.loadDbfromSpace()
@@ -188,11 +228,11 @@
                 written = await app.scrypta.invalidate(app.userwallet.sid, app.userwallet.pin, uuid)
                 if (written.txs.length >= 1 && written.txs[0] !== null) {
                   success = true
-                  const spacesEndpoint = new aws.Endpoint(process.env.VUE_APP_do_endpoint);
+                  const spacesEndpoint = new aws.Endpoint(app.digitalocean.endpoint);
                   const s3 = new aws.S3({
                     endpoint: spacesEndpoint
                   })
-                  s3.deleteObject({Bucket: process.env.VUE_APP_do_space, Key: app.s3filekeys[uuid]}, async function(err) {
+                  s3.deleteObject({Bucket: app.digitalocean.space, Key: 'scryptaregister/' + app.s3filekeys[uuid]}, async function(err) {
                     if(!err){
                       app.$buefy.toast.open({
                         message: "Data invalidated and deleted from space correctly, please wait at least 2 minutes!",

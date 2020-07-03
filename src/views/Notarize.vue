@@ -1,28 +1,37 @@
 <template>
   <div style="text-align:left; padding: 20px">
-    <h1>
-      Notarize document
-    </h1><br>
-    <b-field label="Select user">
-      <model-select :options="options" v-model="selected" placeholder="Select user"></model-select>
-    </b-field>
-    <b-field label="Insert title">
-      <b-input v-model="title"></b-input>
-    </b-field>
-    <div v-if="!fileHash">
-      <b-upload v-model="file" v-if="!fileHash && selected" v-on:input="loadFile" drag-drop>
-        <section class="section">
-          <div class="content has-text-centered">
-            <p>Release file here o click to select from computer.</p>
-          </div>
-        </section>
-      </b-upload>
+    <div v-if="isUnlocked">
+      <h1>
+        Notarize document
+      </h1><br>
+      <b-field label="Select folder">
+        <model-select :options="options" v-model="selected" placeholder="Select folder"></model-select>
+      </b-field>
+      <b-field label="Select file visibility">
+        <model-select :options="options_visibility" v-model="visibility" placeholder="Select file visibility"></model-select>
+      </b-field>
+      <b-field label="Insert title">
+        <b-input v-model="title"></b-input>
+      </b-field>
+      <div v-if="!fileHash">
+        <b-upload v-model="file" v-if="!fileHash && selected" v-on:input="loadFile" drag-drop>
+          <section class="section">
+            <div class="content has-text-centered">
+              <p>Release file here o click to select from computer.</p>
+            </div>
+          </section>
+        </b-upload>
+      </div>
+      <div v-if="fileHash" style="padding:20px; text-align:center;">
+        File hash is: <b>{{ fileHash }}</b>
+      </div>
+      <b-button v-on:click="writeData" v-if="fileHash && !isWriting && !isUploading" type="is-primary" expanded size="is-large">WRITE DOCUMENT</b-button>
+      <div v-if="isWriting" style="padding:20px; text-align:center;">Writing document in the blockchain..</div>
     </div>
-    <div v-if="fileHash" style="padding:20px; text-align:center;">
-      File hash is: <b>{{ fileHash }}</b>
+    <div v-if="!isUnlocked" style="padding:20vh 0; text-align:center;">
+      Unlock your wallet first.<br><br>
+      <b-button v-on:click="loadDbfromSpace" type="is-primary">UNLOCK</b-button>
     </div>
-    <b-button v-on:click="writeData" v-if="fileHash && !isWriting" type="is-primary" expanded size="is-large">WRITE DOCUMENT</b-button>
-    <div v-if="isWriting" style="padding:20px; text-align:center;">Writing document in the blockchain..</div>
   </div>
 </template>
 
@@ -45,11 +54,24 @@
         selected: "",
         isLogging: true,
         fileHash: "",
+        digitalocean: {},
         title: "",
         file: [],
+        isUnlocked: false,
         isWriting: false,
         db: [],
         options: [],
+        visibility: 'public',
+        options_visibility: [
+          {
+            value: 'public',
+            text: 'Public'
+          },
+          {
+            value: 'encrypted',
+            text: 'Encrypted'
+          }
+        ],
         isUploading: false,
         isUpdating: false
       };
@@ -82,17 +104,17 @@
             onConfirm: async password => {
               let key = await app.scrypta.readKey(password, app.wallet.wallet);
               if (key !== false) {
-                let do_key = await app.scrypta.decryptData(process.env.VUE_APP_do_key_id, key.prv)
-                let do_secret = await app.scrypta.decryptData(process.env.VUE_APP_do_secret_key, key.prv)
                 aws.config.update({
-                  accessKeyId: do_key,
-                  secretAccessKey: do_secret
+                  accessKeyId: key.do.key_id,
+                  secretAccessKey: key.do.key_secret
                 })
-                const spacesEndpoint = new aws.Endpoint(process.env.VUE_APP_do_endpoint);
+                app.isUnlocked = true
+                app.digitalocean = key.do
+                const spacesEndpoint = new aws.Endpoint(key.do.endpoint)
                 const s3 = new aws.S3({
                   endpoint: spacesEndpoint
                 })
-                s3.getObject({Bucket: process.env.VUE_APP_do_space, Key: app.address + '.db'}, async function(err, data) {
+                s3.getObject({Bucket: key.do.space, Key: 'scryptaregister/' + app.address + '.db'}, async function(err, data) {
                   if(!err){
                     let db = new Buffer.from(data.Body).toString()
                     let decrypted = await app.scrypta.decryptData(db, key.prv)
@@ -128,34 +150,51 @@
         let hash = crypto.createHash("sha256").update(file).digest("hex")
         app.fileHash = hash
 
-        const spacesEndpoint = new aws.Endpoint(process.env.VUE_APP_do_endpoint);
+        const spacesEndpoint = new aws.Endpoint(app.digitalocean.endpoint);
         const s3 = new aws.S3({
             endpoint: spacesEndpoint
         })
 
         app.isUploading = true
         const reader = new FileReader()
-        reader.onload = function () {
+        reader.onload = async function () {
           var buf = Buffer(reader.result)
-          s3.upload({
-              Bucket: process.env.VUE_APP_do_space,
-              ACL: 'public-read',
-              Body: buf,
-              Key: app.db[app.selected].address + '/' + hash
-          }, { Bucket: process.env.do_space }, function (err) {
-              app.isUploading = false
-              if(!err){
-                app.$buefy.toast.open({
-                  message: "File uploaded correctly to space.",
-                  type: "is-success"
-                })
-              }else{
-                app.$buefy.toast.open({
-                  message: "Something goes wrong with upload, please retry.",
-                  type: "is-danger"
-                })
-              }
-          })
+          let hasError = false
+          if(app.visibility === 'encrypted'){
+            let wallet = await app.scrypta.readKey(app.db[app.selected].pin, app.db[app.selected].sid)
+            let encrypted = await app.scrypta.cryptFile(file, wallet.prv)
+            let decrypted = await app.scrypta.decryptFile(encrypted, wallet.prv)
+            if(decrypted !== false){
+              buf = Buffer(encrypted)
+            }else{
+              app.$buefy.toast.open({
+                message: "Something goes wrong with encryption, please retry.",
+                type: "is-danger"
+              })
+              hasError = true
+            }
+          }
+          if(!hasError){
+            s3.upload({
+                Bucket: app.digitalocean.space,
+                ACL: 'public-read',
+                Body: buf,
+                Key:  'scryptaregister/' + app.db[app.selected].address + '/' + hash
+            }, { Bucket: app.digitalocean.space }, function (err) {
+                app.isUploading = false
+                if(!err){
+                  app.$buefy.toast.open({
+                    message: "File uploaded correctly to space.",
+                    type: "is-success"
+                  })
+                }else{
+                  app.$buefy.toast.open({
+                    message: "Something goes wrong with upload, please retry.",
+                    type: "is-danger"
+                  })
+                }
+            })
+          }
         };
 
         reader.readAsArrayBuffer(file)
@@ -191,16 +230,16 @@
                     let FileData = JSON.stringify({
                       file: app.fileHash,
                       title: title,
-                      timestamp: new Date().getTime()
+                      timestamp: new Date().getTime(),
+                      visibility: app.visibility
                     })
 
                     let signature = await app.scrypta.signMessage(key.prv, FileData)
                     let dataToWrite = JSON.stringify(signature)
                     let success = false
                     let written
-
                     while(success === false){
-                      written = await app.scrypta.write(app.db[app.selected].sid, app.db[app.selected].pin, dataToWrite, '', '', process.env.VUE_APP_do_space + '://')
+                      written = await app.scrypta.write(app.db[app.selected].sid, app.db[app.selected].pin, dataToWrite, '', '', 'register://')
                       if (written.txs.length >= 1 && written.txs[0] !== null) {
                         success = true
                         app.$buefy.toast.open({
