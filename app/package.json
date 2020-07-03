@@ -1,0 +1,22 @@
+{
+  "name": "scryptaregister",
+  "version": "1.0.5",
+  "description": "Scrypta Blockchain Register Manager",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "electron .",
+    "pack:linux": "rm -rf ./scryptaregister-linux-x64 && electron-packager ./ scryptaregister && electron-installer-debian --src ./scryptaregister-linux-x64/ --dest ../packages/ --arch amd64 --icon dist/logo.png"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.17.1"
+  },
+  "devDependencies": {
+    "electron": "^9.0.5",
+    "electron-installer-debian": "^3.0.0",
+    "electron-packager": "^14.2.1",
+    "nodemon": "^2.0.4"
+  }
+}
