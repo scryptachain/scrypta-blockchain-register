@@ -123,7 +123,7 @@
                       for(let k in app.db){
                         app.options.push({
                           value: k, 
-                          text: app.db[k].name + ' ' +app.db[k].surname 
+                          text: app.db[k].identifier
                         })
                       }
                     }else{
