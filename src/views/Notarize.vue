@@ -239,7 +239,7 @@
                     let success = false
                     let written
                     while(success === false){
-                      written = await app.scrypta.write(app.db[app.selected].sid, app.db[app.selected].pin, dataToWrite, '', '', 'register://')
+                      written = await app.scrypta.write(app.db[app.selected].sid, app.db[app.selected].pin, dataToWrite, app.digitalocean.space+'.'+app.digitalocean.endpoint, '', 'register://')
                       if (written.txs.length >= 1 && written.txs[0] !== null) {
                         success = true
                         app.$buefy.toast.open({
