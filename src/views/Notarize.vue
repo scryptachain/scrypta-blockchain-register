@@ -147,8 +147,6 @@
       async loadFile() {
         const app = this;
         const file = app.file;
-        let hash = crypto.createHash("sha256").update(file).digest("hex")
-        app.fileHash = hash
 
         const spacesEndpoint = new aws.Endpoint(app.digitalocean.endpoint);
         const s3 = new aws.S3({
@@ -159,6 +157,8 @@
         const reader = new FileReader()
         reader.onload = async function () {
           var buf = Buffer(reader.result)
+          let hash = crypto.createHash("sha256").update(buf).digest("hex")
+          app.fileHash = hash
           let hasError = false
           if(app.visibility === 'encrypted'){
             let wallet = await app.scrypta.readKey(app.db[app.selected].pin, app.db[app.selected].sid)
