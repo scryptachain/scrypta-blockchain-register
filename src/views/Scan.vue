@@ -13,13 +13,11 @@
                   <div class="media-content">
                     <p v-if="file.data.message.title" class="title is-4">{{ file.data.message.title }}</p>
                     <p v-if="!file.data.message.title" class="title is-4">Untitled</p>
-                    <p class="subtitle is-6">{{ file.uuid }}</p>
-                    <p class="subtitle is-6">{{ file.data.message.hash }}</p>
                   </div>
                 </div>
-
                 <div class="content">
-                  <b>Notarize at block</b> {{ file.block }}<br>
+                  <b>Hash file:</b> {{ file.data.message.file.substr(0,6) }}...{{ file.data.message.file.substr(-6) }}<br>
+                  <b>Notarized at block</b> {{ file.block }}<br>
                   <b>At</b> {{ file.date }}<br><br>
                   <a :href="file.link" v-if="!file.data.message.visibility || file.data.message.visibility === 'public'">
                     <b-button style="width:100%" type="is-info">DOWNLOAD</b-button>
