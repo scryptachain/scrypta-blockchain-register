@@ -19,7 +19,7 @@
                 <b>Notarize at block</b> {{ file.block }}<br>
                 <b>At</b> {{ file.date }}<br><br>
                 <a :href="file.link" target="_blank">
-                  <b-button style="width:100%" type="is-primary">DOWNLOAD CERTIFICATE</b-button>
+                  <b-button style="width:100%" type="is-info">DOWNLOAD CERTIFICATE</b-button>
                 </a>
                 <b-button style="width:100%" v-if="!isInvalidating" v-on:click="invalidate(file.uuid)" type="is-danger">INVALIDATE CERTIFICATE</b-button>
               </div>

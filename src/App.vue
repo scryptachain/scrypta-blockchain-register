@@ -4,7 +4,7 @@
       <b-navbar>
         <template slot="brand">
           <b-navbar-item tag="router-link" :to="{ path: '/' }">
-            <img src="/logo.png" />
+            <img src="/logo.png" style="margin-right:15px" /> <b>Register Manager</b>
           </b-navbar-item>
         </template>
         
