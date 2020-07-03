@@ -15,6 +15,9 @@
         <b-table-column field="surname" label="Surname">
           {{ props.row.surname }}
         </b-table-column>
+        <b-table-column field="email" label="E-Mail">
+          {{ props.row.email }}
+        </b-table-column>
         <b-table-column field="pin" label="PIN">
           {{ props.row.pin }}
         </b-table-column>
