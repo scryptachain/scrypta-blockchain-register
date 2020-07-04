@@ -24,7 +24,7 @@
         </template>
       </b-navbar>
       <router-view />
-      <hr />Scrypta Blockchain Register Manager<br>Developed by <a href="https://scrypta.foundation" target="_blank">Scrypta Foundation</a>.
+      <hr />Scrypta Documenta Register Manager<br>Developed by <a href="https://scrypta.foundation" target="_blank">Scrypta Foundation</a>.
       <br />
       <br />
     </div>
@@ -36,14 +36,14 @@
             <div class="card">
               <div style="padding: 50px 20px;">
                 <img src="/scrypta_h.png" width="25%"><br><br>
-                <h1 class="title is-2">Blockchain Register Manager</h1>
+                <h1 class="title is-2">Documenta Register Manager</h1>
                 <h2 class="subtitle">
                   <br />Enter with your Scrypta Identity.<br><br>
-                  <div id="scrypta-login" dapp="Scrypta Register"></div>
+                  <div id="scrypta-login" dapp="Scrypta Documenta"></div>
                 </h2>
               </div>
             </div>
-            <br />Scrypta Blockchain Register Manager<br>Developed by <a href="https://scrypta.foundation" target="_blank">Scrypta Foundation</a>.
+            <br />Scrypta Documenta Register Manager<br>Developed by <a href="https://scrypta.foundation" target="_blank">Scrypta Foundation</a>.
             <br />
             <br />
           </div>
