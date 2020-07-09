@@ -14,18 +14,29 @@
         <b-input v-model="title"></b-input>
       </b-field>
       <div v-if="!fileHash">
-        <b-upload v-model="file" v-if="!fileHash && selected" v-on:input="loadFile" drag-drop>
+        <b-upload v-model="file" v-if="!fileHash && selected" drag-drop>
           <section class="section">
             <div class="content has-text-centered">
               <p>Release file here o click to select from computer.</p>
             </div>
           </section>
         </b-upload>
+        <div class="tags">
+            <span v-for="(file, index) in file"
+                :key="index"
+                class="tag is-primary" >
+                {{file.name}}
+                <button class="delete is-small"
+                    type="button"
+                    @click="deleteDropFile(index)">
+                </button>
+            </span>
+        </div>
       </div>
       <div v-if="fileHash" style="padding:20px; text-align:center;">
         File hash is: <b>{{ fileHash }}</b>
-      </div>
-      <b-button v-on:click="writeData" v-if="fileHash && !isWriting && !isUploading" type="is-primary" expanded size="is-large">WRITE DOCUMENT</b-button>
+      </div><br>
+      <b-button v-on:click="writeData" v-if="!fileHash && !isWriting && !isUploading" type="is-primary" expanded size="is-large">WRITE DOCUMENT</b-button>
       <div v-if="isWriting" style="padding:20px; text-align:center;">Writing document in the blockchain..</div>
     </div>
     <div v-if="!isUnlocked" style="padding:20vh 0; text-align:center;">
@@ -144,64 +155,70 @@
             }
           });
       },
-      async loadFile() {
+      loadFile() {
         const app = this;
-        const file = app.file;
+        return new Promise(async response => {
 
-        const spacesEndpoint = new aws.Endpoint(app.digitalocean.endpoint);
-        const s3 = new aws.S3({
-            endpoint: spacesEndpoint
-        })
+          const file = app.file;
 
-        app.isUploading = true
-        const reader = new FileReader()
-        reader.onload = async function () {
-          var buf = Buffer(reader.result)
-          let hash = crypto.createHash("sha256").update(buf).digest("hex")
-          app.fileHash = hash
-          let hasError = false
-          if(app.visibility === 'encrypted'){
-            let wallet = await app.scrypta.readKey(app.db[app.selected].pin, app.db[app.selected].sid)
-            let encrypted = await app.scrypta.cryptFile(file, wallet.prv)
-            let decrypted = await app.scrypta.decryptFile(encrypted, wallet.prv)
-            if(decrypted !== false){
-              buf = Buffer(encrypted)
-            }else{
-              app.$buefy.toast.open({
-                message: "Something goes wrong with encryption, please retry.",
-                type: "is-danger"
-              })
-              hasError = true
+          const spacesEndpoint = new aws.Endpoint(app.digitalocean.endpoint);
+          const s3 = new aws.S3({
+              endpoint: spacesEndpoint
+          })
+
+          app.isUploading = true
+          const reader = new FileReader()
+          reader.onload = async function () {
+            var buf = Buffer(reader.result)
+            let hash = crypto.createHash("sha256").update(buf).digest("hex")
+            app.fileHash = hash
+            let hasError = false
+            if(app.visibility === 'encrypted'){
+              let wallet = await app.scrypta.readKey(app.db[app.selected].pin, app.db[app.selected].sid)
+              let encrypted = await app.scrypta.cryptFile(file, wallet.prv)
+              let decrypted = await app.scrypta.decryptFile(encrypted, wallet.prv)
+              if(decrypted !== false){
+                buf = Buffer(encrypted)
+              }else{
+                app.$buefy.toast.open({
+                  message: "Something goes wrong with encryption, please retry.",
+                  type: "is-danger"
+                })
+                hasError = true
+              }
             }
-          }
-          if(!hasError){
-            s3.upload({
-                Bucket: app.digitalocean.space,
-                ACL: 'public-read',
-                Body: buf,
-                Key:  'scryptaregister/' + app.db[app.selected].address + '/' + hash
-            }, { Bucket: app.digitalocean.space }, function (err) {
-                app.isUploading = false
-                if(!err){
-                  app.$buefy.toast.open({
-                    message: "File uploaded correctly to space.",
-                    type: "is-success"
-                  })
-                }else{
-                  app.$buefy.toast.open({
-                    message: "Something goes wrong with upload, please retry.",
-                    type: "is-danger"
-                  })
-                }
-            })
-          }
-        };
+            if(!hasError){
+              s3.upload({
+                  Bucket: app.digitalocean.space,
+                  ACL: 'public-read',
+                  Body: buf,
+                  Key:  'scryptaregister/' + app.db[app.selected].address + '/' + hash
+              }, { Bucket: app.digitalocean.space }, function (err) {
+                  app.isUploading = false
+                  if(!err){
+                    app.$buefy.toast.open({
+                      message: "File uploaded correctly to space.",
+                      type: "is-success"
+                    })
+                    response(true)
+                  }else{
+                    app.$buefy.toast.open({
+                      message: "Something goes wrong with upload, please retry.",
+                      type: "is-danger"
+                    })
+                    response(false)
+                  }
+              })
+            }
+          };
 
-        reader.readAsArrayBuffer(file)
+          reader.readAsArrayBuffer(file)
+        })
       },
       async writeData(){
         const app = this
-        if(app.fileHash !== '' && app.selected !== ''){
+        let uploaded = await app.loadFile()
+        if(app.fileHash !== '' && app.selected !== '' && uploaded === true){
            app.$buefy.dialog.prompt({
             message: `Insert wallet password`,
             inputAttrs: {
@@ -240,7 +257,7 @@
                     let written
                     while(success === false){
                       written = await app.scrypta.write(app.db[app.selected].sid, app.db[app.selected].pin, dataToWrite, app.digitalocean.space+'.'+app.digitalocean.endpoint, '', 'register://')
-                      if (written.txs.length >= 1 && written.txs[0] !== null) {
+                      if (written !== undefined && written.txs.length >= 1 && written.txs[0] !== null) {
                         success = true
                         app.$buefy.toast.open({
                           message: "Data written correctly!",
@@ -281,6 +298,9 @@
             type: "is-danger"
           })
         }
+      },
+      deleteDropFile(index) {
+        this.file.splice(index, 1)
       }
     }
   };
