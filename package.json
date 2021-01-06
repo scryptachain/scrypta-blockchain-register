@@ -10,7 +10,7 @@
   "dependencies": {
     "@scrypta/core": "^2.1.1",
     "aws-sdk": "^2.712.0",
-    "axios": "^0.19.2",
+    "axios": "^0.21.1",
     "buefy": "^0.8.20",
     "core-js": "^3.6.5",
     "crypto": "^1.0.1",
